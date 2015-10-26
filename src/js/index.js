@@ -57,20 +57,22 @@ const HelicropterView = View.extend({
   },
 
   _addZoomSlider() {
-    const initialImage = this._model.get('initialImage');
-    let initialScale = 1.0;
+    if (!this._model.get('hideZoomSlider')) {
+      const initialImage = this._model.get('initialImage');
+      let initialScale = 1.0;
 
-    if (initialImage && initialImage.coordinates && typeof initialImage.coordinates.scale !== 'undefined') {
-      initialScale = initialImage.coordinates.scale;
+      if (initialImage && initialImage.coordinates && typeof initialImage.coordinates.scale !== 'undefined') {
+        initialScale = initialImage.coordinates.scale;
+      }
+
+      this._zoomSlider = new ZoomSlider({
+        cropWidth: this._model.get('cropSize').width,
+        cropHeight: this._model.get('cropSize').height,
+        allowTransparency: this._model.get('allowTransparency'),
+        initialScale
+      });
+      this._zoomSlider.render(this.$view.find('.js-crop-controls'));
     }
-
-    this._zoomSlider = new ZoomSlider({
-      cropWidth: this._model.get('cropSize').width,
-      cropHeight: this._model.get('cropSize').height,
-      allowTransparency: this._model.get('allowTransparency'),
-      initialScale
-    });
-    this._zoomSlider.render(this.$view.find('.js-crop-controls'));
   },
 
   _addRatioLock() {
@@ -110,9 +112,12 @@ const HelicropterView = View.extend({
   },
 
   _bindSubsections() {
-    this._croppingArea.relay(this._zoomSlider, 'scale');
     this._croppingArea.relay(this._uploadArea, 'set-image');
-    this._zoomSlider.relay(this._croppingArea, 'image-loaded');
+
+    if (!this._model.get('hideZoomSlider')) {
+      this._croppingArea.relay(this._zoomSlider, 'scale');
+      this._zoomSlider.relay(this._croppingArea, 'image-loaded');
+    }
 
     this.listenTo(this._uploadArea, {
       'image-uploading'() {
@@ -167,8 +172,10 @@ const HelicropterView = View.extend({
 
     this._croppingArea.show();
 
-    this._zoomSlider.reset();
-    this._zoomSlider.enable();
+    if (!this._model.get('hideZoomSlider')) {
+      this._zoomSlider.reset();
+      this._zoomSlider.enable();
+    }
 
     this.trigger('controls:enabled');
   },
@@ -181,7 +188,9 @@ const HelicropterView = View.extend({
     this._croppingArea.reset();
     this._croppingArea.hide();
 
-    this._zoomSlider.disable();
+    if (!this._model.get('hideZoomSlider')) {
+      this._zoomSlider.disable();
+    }
 
     this.trigger('controls:disabled');
   }
@@ -209,6 +218,7 @@ const Helicropter = Controller.extend({
     viewportRatio: 'static',
     ratioLockText: 'Enable aspect ratio for cover image resize',
     allowTransparency: true,
+    hideZoomSlider: false,
     showRatioLock: false,
     showSuggestions: false,
     suggestions: []
