@@ -34,15 +34,17 @@ const HelicropterView = View.extend({
   },
 
   _addUploadArea() {
-    this._uploadArea = new UploadArea({
-      uploaderOptions: this._model.get('uploaderOptions'),
-      backgroundImage: this._model.get('uploadBackgroundImage'),
-      width: this._model.get('canvasSize').width,
-      height: this._model.get('canvasSize').height,
-      titleText: this._model.get('uploadTitle'),
-      subtitleText: this._model.get('uploadSubtitle')
-    });
-    this._uploadArea.render(this.$view.find('.js-upload-container'));
+    if (!this._model.get('hideUploadArea')) {
+      this._uploadArea = new UploadArea({
+        uploaderOptions: this._model.get('uploaderOptions'),
+        backgroundImage: this._model.get('uploadBackgroundImage'),
+        width: this._model.get('canvasSize').width,
+        height: this._model.get('canvasSize').height,
+        titleText: this._model.get('uploadTitle'),
+        subtitleText: this._model.get('uploadSubtitle')
+      });
+      this._uploadArea.render(this.$view.find('.js-upload-container'));
+    }
   },
 
   _addCroppingArea() {
@@ -112,42 +114,47 @@ const HelicropterView = View.extend({
   },
 
   _bindSubsections() {
-    this._croppingArea.relay(this._uploadArea, 'set-image');
-
     if (!this._model.get('hideZoomSlider')) {
       this._croppingArea.relay(this._zoomSlider, 'scale');
       this._zoomSlider.relay(this._croppingArea, 'image-loaded');
     }
 
-    this.listenTo(this._uploadArea, {
-      'image-uploading'() {
-        this._disableImageManipulation();
-      },
+    if (!this._model.get('hideUploadArea')) {
+      this._croppingArea.relay(this._uploadArea, 'set-image');
 
-      'image-uploaded'(url) {
-        this._url = url;
-        this.trigger('image:uploaded', url);
-      },
+      this.listenTo(this._uploadArea, {
+        'image-uploading'() {
+          this._disableImageManipulation();
+        },
 
-      'upload-error'(err) {
-        this.trigger('remove-image');
-        this.trigger('error:upload', err);
-      }
-    });
-    this._uploadArea.on('set-image', () => {
-      this._enableImageManipulation();
-      this.trigger('image:uploading');
-    });
+        'image-uploaded'(url) {
+          this._url = url;
+          this.trigger('image:uploaded', url);
+        },
+
+        'upload-error'(err) {
+          this.trigger('remove-image');
+          this.trigger('error:upload', err);
+        }
+      });
+
+      this._uploadArea.on('set-image', () => {
+        this._enableImageManipulation();
+        this.trigger('image:uploading');
+      });
+    }
 
     this.on('remove-image', () => this._disableImageManipulation());
 
     if (this._model.get('showRatioLock')) {
       this._croppingArea.relay(this._ratioLock, 'ratio-locked');
 
-      this._uploadArea.on('set-image', () => this._ratioLock.enable());
-
       this.on('controls:enabled', () => this._ratioLock.enable());
       this.on('remove-image controls:disabled', () => this._ratioLock.disable());
+
+      if (!this._model.get('hideUploadArea')) {
+        this._uploadArea.on('set-image', () => this._ratioLock.enable());
+      }
 
       if (this._model.get('showSuggestions')) {
         this._suggestionArea.on('set-image', () => this._ratioLock.enable());
@@ -155,22 +162,26 @@ const HelicropterView = View.extend({
     }
 
     if (this._model.get('showSuggestions')) {
-      this._uploadArea.relay(this._suggestionArea, 'upload-image');
-
       this.on('remove-image', () => this._suggestionArea.reset());
-      this._uploadArea.on('set-image', () => this._suggestionArea.reset());
       this._suggestionArea.on('set-image', ({ url, src }) => {
         this._url = url;
         this._enableImageManipulation();
         this._croppingArea.trigger('set-image', src);
       });
+
+      if (!this._model.get('hideUploadArea')) {
+        this._uploadArea.relay(this._suggestionArea, 'upload-image');
+        this._uploadArea.on('set-image', () => this._suggestionArea.reset());
+      }
     }
   },
 
   _enableImageManipulation() {
-    this._uploadArea.hide();
-
     this._croppingArea.show();
+
+    if (!this._model.get('hideUploadArea')) {
+      this._uploadArea.hide();
+    }
 
     if (!this._model.get('hideZoomSlider')) {
       this._zoomSlider.reset();
@@ -183,10 +194,12 @@ const HelicropterView = View.extend({
   _disableImageManipulation() {
     delete this._url;
 
-    this._uploadArea.show();
-
     this._croppingArea.reset();
     this._croppingArea.hide();
+
+    if (!this._model.get('hideUploadArea')) {
+      this._uploadArea.show();
+    }
 
     if (!this._model.get('hideZoomSlider')) {
       this._zoomSlider.disable();
@@ -218,6 +231,7 @@ const Helicropter = Controller.extend({
     viewportRatio: 'static',
     ratioLockText: 'Enable aspect ratio for cover image resize',
     allowTransparency: true,
+    hideUploadArea: false,
     hideZoomSlider: false,
     showRatioLock: false,
     showSuggestions: false,
